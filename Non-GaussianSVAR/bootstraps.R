@@ -72,8 +72,6 @@ generate_moving_block_sample = function(var_model,ts_data, n_lags){
 
 
 
-
-
 #GENERATE BOOTSTRAP SAMPLE THROUGH I.I.D. RESIDUAL BOOTSTRAP 
 generate_bootstrap_sample = function(var_model,residuals,ts_data, n_lags) {
   # Get the number of observations and variables
@@ -178,7 +176,7 @@ generateBootIRFs = function(n_bootstrap, H, pi){
   var_boot_results = vector("list", n_bootstrap)
   ICAsvar_boot_IRF = vector("list", n_bootstrap)
   ICAboot_B = vector("list", n_bootstrap)
-
+  B_sample = id.dc(var_model2T,PIT = FALSE) #replace the first input function with your VAR model object
   eigen_u = eigen(cov(residuals_var2T)) #eigendecomposition of the covariance matrix
   eigen_u_st = diag((eigen_u$values)^(1/2))
  
@@ -188,62 +186,31 @@ generateBootIRFs = function(n_bootstrap, H, pi){
     # Generate bootstrap sample
     boot_sample = generate_moving_block_sample(var_model2T,data_neriCompleto, pi)  # Generate bootstrap sample, you can change it
     
-    
     # Refit the VAR model on the bootstrap sample
     boot_var_model = VAR(boot_sample, p = pi, type = "const")
     boot_var_residuals = residuals(boot_var_model)
-   
     eigen_u_star = eigen(cov(boot_var_residuals))
     eigen_u_star_st = (eigen_u_star$values)^(-1/2)
     eigen_u_star_st = diag(eigen_u_star_st)
     
-    #boot_ML = mle_theta(boot_var_residuals, l,B_chol , random_lambda, random_sigma)
-    #B_boot_st = boot_ML$optimal_beta
-    boot_ICA = id.dc(boot_var_model,PIT = FALSE)
+    boot_ICA = id.dc(boot_var_model,PIT = FALSE) #replace with your ICA estimator, here I used distance covariance from the svars package
     B_boot_st = boot_ICA$B #extract structural matrix 
    
     B_bootShocks = boot_var_residuals %*%  solve(B_boot_st) #extract the shocks
-
- 
-    B_boot_st[,1] = B_boot_st[,1] * sd(B_bootShocks[,1])
+    B_boot_st[,1] = B_boot_st[,1] * sd(B_bootShocks[,1]) 
     B_boot_st[,2] = B_boot_st[,2] * sd(B_bootShocks[,2])
     B_boot_st[,3] = B_boot_st[,3] * sd(B_bootShocks[,3])
+  
     
+    #SELECT BEST PERMUTATION AND SIGN GIVEN THE WELL SHAPED MATRIX AND THE BOOTSTRAP ESTIMATES
+    B_boot = select_best_permutation_and_sign(B_sample$B, B_boot_st, eigen_u_st) #replace the first input function with your sample B matrix estimates
     
-    #boot_NGML = id.ngml(boot_var_model, stage3 = FALSE, restriction_matrix = NULL)
-    
-    
-    #B_boot_st = eigen_u_st %*% eigen_u_star_st %*% boot_FastICA$B
-    
-    
-    B_boot = select_best_permutation_and_sign(io$B, B_boot_st, eigen_u_st)
-    
-    #for (k in seq_len(ncol(B_boot))) {
-    # if (B_boot[k, k] < 0) {   # Check if the diagonal element is negative
-    #    B_boot[, k] = -B_boot[, k] # Multiply the entire column by -1 if diagonal element is negative
-    #}
-    #}
-    
-    
-    
+    #extract VAR coefficients matrix from the VAR boot model, replace the second input element with your dataset
     A_matrix = var_coefficients(boot_var_model,data_neriCompleto)
-    
-    
-    # Estimate the SVAR model on the refitted VAR model (using your SVAR methodology)
-    
- 
-    #B_boot = permute(B_boot_st)
-    #B_boot = B_boot[,c(3,2,1)]
-    #B_boot[,1] = B_boot[,1] * -1
-    #B_boot[,2] = B_boot[,2] * -1
-    
-    ICAsvar_boot_IRF[[i]] = compute_irf_H(A_matrix,B_boot,H)
+        
+    ICAsvar_boot_IRF[[i]] = compute_irf_H(A_matrix,B_boot,H) #store IRF's and B^** matrix
     ICAboot_B[[i]] = B_boot
-    #appogg = boot_var_residuals %*% solve (B_boot)
-    # sd1[[i]] = sd(appogg[,1])
-    #sd2[[i]] = sd(appogg[,2])
-    #sd3[[i]] = sd(appogg[,3])
-    #print(i)
+  
   }
  
 
