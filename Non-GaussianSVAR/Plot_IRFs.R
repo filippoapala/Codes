@@ -12,48 +12,6 @@ for (b in 1: n_bootstrap) {
 
 
 
-compute_irf_H_COINT <- function (pi_1_coint, pi_2_coint,pi_3_coint, B, H) {
-  # A_full: Large matrix of VAR(p) coefficients including constant (Mx(M*p + 1))
-  # B: Structural impact matrix (MxM)
-  # H: the number of horizons for IRF
-  # Returns IRFs for H horizons
-  
-  # Get dimensions
-  M <- ncol(pi_1_coint)  # Number of variables
-  p <- 2  # Number of lags
-  coint_pis =  vector("list",p)
-  coint_pis[[1]] = pi_1_coint
-  coint_pis[[2]] = pi_2_coint
-  #coint_pis[[3]] = pi_3_coint
-  
-  # Reshape the large matrix A_full into a list A for each lag
-  
-  
-  # Construct companion matrix C (size Mp x Mp)
-  C <- matrix(0, nrow = M * p, ncol = M * p)
-  for (i in 1:p) {
-    C[1:M, ((i - 1) * M + 1):(i * M)] <-coint_pis[[i]] # Place A matrices in the first row block
-  }
-  C[(M + 1):(M * p), 1:(M * (p - 1))] <- diag(M * (p - 1))  # Set identity matrices for lag structure
-  
-  # Define selection matrix R (size M x Mp)
-  R <- matrix(0, nrow = M, ncol = M * p)
-  diag(R) <- 1
-  
-  # Compute SVAR IRFs up to horizon H
-  IRFsCOINT <- array(0, dim = c(M, M, H))  # Store IRFs in 3D array (M x M x H)
-  
-  # Compute the IRF at each horizon
-  for (h in 0:(H - 1)) {
-    Ch <- matrix_power(C, h)  # Compute C to the power of h
-    IRFsCOINT[, , h + 1] <- (R %*% Ch %*% t(R)) %*% B  # Compute the IRF at horizon h
-  }
-  
-  return(IRFs)
-}
-
-
-
 #IT COMPUTES THE IRF'S
 compute_irf_H <- function (A_full, B, H) {
   # A_full: Large matrix of VAR(p) coefficients including constant (Mx(M*p + 1))
