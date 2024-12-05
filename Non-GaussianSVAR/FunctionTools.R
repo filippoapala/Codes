@@ -25,57 +25,57 @@ chi_stat = function(boot_B, B_hat){
 
 
 #COMPUTE THE ILMONEN INDEX FOR MONTE CARLO SIMULATIONS, it computes a mesure of similarity between the original matrix and the proposed one,
-computeIlmonenIndex <- function(B_true, B_est) {
+computeIlmonenIndex = function(B_true, B_est) {
  
   # Ensure matrices are square and have the same dimensions
-  k_true <- nrow(B_true)
-  n_true <- ncol(B_true)
-  k_est <- nrow(B_est)
-  n_est <- ncol(B_est)
+  k_true = nrow(B_true)
+  n_true = ncol(B_true)
+  k_est = nrow(B_est)
+  n_est = ncol(B_est)
   
-  k <- k_true  # Size of the square matrix
+  k = k_true  # Size of the square matrix
   
   # Define the objective function for minimization: Frobenius norm calculation
-  objectiveFn <- function(C) {
+  objectiveFn = function(C) {
     # Convert the vectorized form back to matrix form
-    C_matrix <- matrix(C, nrow = k, ncol = k)
+    C_matrix = matrix(C, nrow = k, ncol = k)
     
     # Frobenius norm || C * inv(B_est) * B_true - I_k ||
-    distance_matrix <- C_matrix %*% solve(B_est) %*% B_true - diag(k)
-    d <- norm(distance_matrix, type = "F")  # Frobenius norm
+    distance_matrix = C_matrix %*% solve(B_est) %*% B_true - diag(k)
+    d = norm(distance_matrix, type = "F")  # Frobenius norm
     return(d)
   }
   
   # Construct initial guess for C as an identity matrix
-  C_init <- diag(k)
+  C_init = diag(k)
   
   # Use optimization to find the best C
-  C_opt <- optim(par = as.vector(C_init), fn = objectiveFn, method = "Nelder-Mead")$par
+  C_opt = optim(par = as.vector(C_init), fn = objectiveFn, method = "Nelder-Mead")$par
   
   # Reshape optimized vector back to matrix form
-  C_opt_matrix <- matrix(C_opt, nrow = k, ncol = k)
+  C_opt_matrix = matrix(C_opt, nrow = k, ncol = k)
   
   # Compute the final Ilmonen index
-  distance <- norm(C_opt_matrix %*% solve(B_est) %*% B_true - diag(k), type = "F")
-  ilmonen_index <- distance / sqrt(k - 1)
+  distance = norm(C_opt_matrix %*% solve(B_est) %*% B_true - diag(k), type = "F")
+  ilmonen_index = distance / sqrt(k - 1)
   
   return(ilmonen_index)
 }
 
 
 #EXTRACT THE VAR COEFFICIENTS FROM A VAR MODEL OBJECT
-var_coefficients <- function(var_model, ts_data) {
+var_coefficients = function(var_model, ts_data) {
   
   # Number of variables (M) and lags (p) used in the VAR model
-  M <- ncol(ts_data)  # Assuming M = number of variables in the VAR model
-  p <- var_model$p   # Number of lags
+  M = ncol(ts_data)  # Assuming M = number of variables in the VAR model
+  p = var_model$p   # Number of lags
   
   # Initialize matrix to store VAR coefficients in the required format
-  A_full <- matrix(0, nrow = M, ncol = (M * p) + 1)  # +1 for the constant term
+  A_full = matrix(0, nrow = M, ncol = (M * p) + 1)  # +1 for the constant term
   
   
   # Extract the coefficients of the VAR model
-  coefficients <- as.matrix(coef(var_model))
+  coefficients = as.matrix(coef(var_model))
   
   # Place the lagged coefficients in the appropriate blocks
   for (m in 1:M) {
@@ -133,51 +133,51 @@ select_best_permutation_and_sign <- function(D_p, D_r, Omega) {
   #}
   
   # Get the dimension of the matrices
-  K <- nrow(D_p)
+  K = nrow(D_p)
   
   # Extract diagonal elements of Omega for rescaling
-  omega_diag <- diag(Omega)
+  omega_diag = diag(Omega)
   
   # Generate all column permutations
-  permutations <- permutations(K, K)
+  permutations = permutations(K, K)
   
   # Generate all combinations of sign flips for K columns
-  sign_combinations <- expand.grid(rep(list(c(1, -1)), K))
-  sign_combinations <- as.matrix(sign_combinations)  # Ensure sign_combinations is numeric
+  sign_combinations = expand.grid(rep(list(c(1, -1)), K))
+  sign_combinations = as.matrix(sign_combinations)  # Ensure sign_combinations is numeric
   
   # Initialize variables to track the best matrix and minimum criterion value
-  min_criterion_value <- Inf
-  best_matrix <- NULL
+  min_criterion_value = Inf
+  best_matrix = NULL
   
   # Loop through each permutation of columns
   for (perm in 1:nrow(permutations)) {
     # Apply the permutation to the columns of D_r
-    permuted_D_r <- D_r[, permutations[perm, ]]
+    permuted_D_r = D_r[, permutations[perm, ]]
     
     # Loop through each combination of sign flips
     for (signs in 1:nrow(sign_combinations)) {
       # Apply sign flips to the permuted columns
-      signed_D_r <- sweep(permuted_D_r, 2, sign_combinations[signs, ], `*`)
+      signed_D_r = sweep(permuted_D_r, 2, sign_combinations[signs, ], `*`)
       
       # Calculate the criterion value for the signed and permuted D_r
-      criterion_value <- 0
+      criterion_value = 0
       for (i in 1:K) {
         for (j in 1:K) {
           # Calculate squared difference and apply rescaling
-          diff <- D_p[i, j] - signed_D_r[i, j]
-          scaled_diff <- (diff^2) / omega_diag[i]
+          diff = D_p[i, j] - signed_D_r[i, j]
+          scaled_diff = (diff^2) / omega_diag[i]
           
           # Apply the indicator function to check for opposite signs
           if (D_p[i, j] * signed_D_r[i, j] < 0) {
-            criterion_value <- criterion_value + scaled_diff
+            criterion_value = criterion_value + scaled_diff
           }
         }
       }
       
       # Update best_matrix if the current matrix has a lower criterion value
       if (criterion_value < min_criterion_value) {
-        min_criterion_value <- criterion_value
-        best_matrix <- signed_D_r
+        min_criterion_value = criterion_value
+        best_matrix = signed_D_r
       }
     }
   }
