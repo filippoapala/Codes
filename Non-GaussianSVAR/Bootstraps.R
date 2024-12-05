@@ -11,15 +11,15 @@ generate_moving_block_sample = function(var_model,ts_data, n_lags){
  coef_matrix = var_coefficients(var_model,ts_data)
  
   # Step 3: Define block length and create bootstrap residuals
-  block_length <- 20  # Adjust block length (ℓ) as needed
-  T <- nrow(Residuals)  # Number of time points
-  N <- ceiling(T / block_length)  # Number of blocks
-  bootstrap_residuals <- vector("list", N)
+  block_length = 20  # Adjust block length (ℓ) as needed
+  T = nrow(Residuals)  # Number of time points
+  N = ceiling(T / block_length)  # Number of blocks
+  bootstrap_residuals = vector("list", N)
   
   # Create blocks and perform block sampling
   for (i in 1:N) {
     block_start = sample(1:(T - block_length), 1)
-    bootstrap_residuals[[i]] <- Residuals[block_start:(block_start + block_length - 1), ]
+    bootstrap_residuals[[i]] = Residuals[block_start:(block_start + block_length - 1), ]
   }
   
   # Combine blocks to form the bootstrap residuals
