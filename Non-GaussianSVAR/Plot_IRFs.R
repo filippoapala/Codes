@@ -61,7 +61,7 @@ compute_irf_H = function (A_full, B, H) {
   matrix_power = function(A, n) {
     if (n == 0) return(diag(nrow(A)))  # Identity matrix
       result = A
-   for (i in 2:n) {
+   for (i in 1:n) {
       result = result %*% A
    }
       
