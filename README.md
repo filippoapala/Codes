@@ -1,1 +1,2 @@
-Each folder contains the pdf of a project and the related code. Each code likely contains some variable names that is specific to my application, those have to be changed accordingly. Moreover the code is not completely generalized as it has been written to solve a precise problem.
+Each folder contains the pdf of a project and the related code. 
+
