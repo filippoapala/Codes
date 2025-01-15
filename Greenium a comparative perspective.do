@@ -1,9 +1,3 @@
-clear all
-set more off
-capture log close
-cd "C:\Users\ACER\OneDrive\Desktop\Finance Assignment"
-import excel Bonds.xlsx, sheet("Search Results") firstrow clear
-save "Bonds.dta", replace
 
 encode Issuer, gen(issuer) 
 drop Issuer       
