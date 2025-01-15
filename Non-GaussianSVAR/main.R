@@ -14,7 +14,7 @@ data_neriCompleto = data_neriCompleto[, c("Quarterly inflation", "Output gap CL"
 
 # -------------------------LOAD THE FUNCTIONS   ---------------------------
 source("SVAR_Bootstrap_.R") 
-source("MaximumLikelihood_.R")
+source("MaximumLikelihood_.R") 
 source("IRF_.R")
 source("FunctionsTools_.R")
 
@@ -24,12 +24,11 @@ source("FunctionsTools_.R")
 M = 3
 H = 15
 
-
 var_neri = VARselect(data_neriCompleto, lag.max = 10, type = "const") #lag selection
 var_model2T = vars::VAR(data_neriCompleto, p = 2, type = "const") #estimate the VAR with 2 lags
 A_full = var_coefficients(var_model2T, data_neriCompleto) #extract the VAR coefficients
 residuals_var2T = residuals(var_model2T) #extract the residuals
-STvar_model2T = StVAR(as.matrix(data_neriCompleto),Trend=1,lag=2,v=8,maxiter=1000,meth="BFGS",hes="TRUE",init="na") # Student-t VAR model estimated with ML, don't work well with simulated data
+#STvar_model2T = StVAR(as.matrix(data_neriCompleto),Trend=1,lag=2,v=8,maxiter=1000,meth="BFGS",hes="TRUE",init="na") # Student-t VAR model estimated with ML, don't work well with simulated data
 
 
 # -------------------------CHOLEKSY SVAR WITH BOOTSTRAP ---------------------------
