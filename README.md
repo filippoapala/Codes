@@ -1,2 +1,3 @@
-Each folder contains the pdf of a project and the related code. 
+Each folder contains the code and the paper of a different project
+
 
