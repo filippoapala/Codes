@@ -1,0 +1,263 @@
+#Load data
+
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(stringr)
+library(zoo)
+library(lubridate)
+
+dataset_AQ = load("/Users/filippopalandri/Desktop/UNI/Pre-Doc/UW_Project/DATA/sample_all_quarters_v6.RData")
+dataset_Mergent = load("/Users/filippopalandri/Desktop/UNI/Pre-Doc/UW_Project/DATA/mergent_single_files.RData")
+dataset_LinkMergent = read.csv("/Users/filippopalandri/Desktop/UNI/Pre-Doc/UW_Project/DATA/uw_link_mergent.csv")
+
+issue$cusip = paste0(issue$issuer_cusip, issue$issue_cusip). #not necessary if "complete_cusip" is present
+
+#for each issue get the lead underwriter
+
+#check if there is more than one lead underwriter for issue id ---> a lot of issuance has more than one lead underwriter
+tab = table(issue_agents$issue_id[issue_agents$agent_type == "LU"])
+duplicates = names(tab[tab > 1])
+max(tab) #get the maximum number of repetitions---> max is 22
+max_issues = names(tab[tab == max(tab)]) #get issue_id with that count
+
+
+
+
+# Step 1: Filter only Lead Underwriters and assign row number within each issue_id
+lead_uws = issue_agents %>%
+  filter(agent_type == "LU") %>%
+  group_by(issue_id) %>%
+  mutate(uw_num = row_number()) %>%  # 1, 2, 3... per issue_id
+  ungroup()
+
+# Step 2: Pivot wider to create one row per issue, and multiple LU columns
+lead_uw_wide = lead_uws %>%
+  select(issue_id, uw_num, agent_id) %>%
+  pivot_wider(
+    names_from = uw_num,
+    values_from = agent_id,
+    names_prefix = "LU"
+  )
+
+# Step 3: Join the result into your main 'issue' data frame-----> NOT YET EXECUTED
+issue = left_join(issue, lead_uw_wide, by = "issue_id")
+issue$L_UW = NULL #remove a column
+
+
+# Loop through each L_UW_* column and create a *_name column ---> it gets the real name for each agent id 
+uw_cols = grep("^LU\\d+$", names(issue), value = TRUE)
+
+for (col in uw_cols) {
+  name_col = paste0(col, "_name")  # e.g., LU1_name
+  
+  issue[[name_col]] = agent$legal_name[match(issue[[col]], agent$agent_id)]
+}
+
+
+# Gather all LU name columns into long format
+long_issue = issue %>%
+  select(complete_cusip, ends_with("_name"))  
+  
+
+# Join by complete_cusip ---> now dt has each row matched my the complete cusip in issue
+dt <- dt %>%
+  left_join(long_issue, by = "complete_cusip")
+
+
+
+# BE CAREFUL, IT DOES CONTAINS MORE THAN ONE LU
+filtered_agents = issue_agents[issue_agents$agent_type == "LU", ]
+issue$L_UW = filtered_agents[['agent_id']][match(issue$issue_id, filtered_agents$issue_id)]
+
+
+
+# Count how many times each LU1 underwriter appears ----> IF YOU WANT THE REAL NUMBER DIVIDE BY THE OBSERVED QUARTERS THAT ARE 20, BE CAREFUL OF THE DUPLICATES
+top_lu1_counts <- dt %>%
+  filter(!is.na(LU1_name)) %>%
+  distinct(complete_cusip, LU1_name, .keep_all = TRUE) %>%  # remove duplicate bonds
+  count(LU1_name, sort = TRUE) %>%
+  slice_max(n, n = 10)
+
+# Plot horizontal bar chart
+ggplot(top_lu1_counts, aes(x = reorder(LU1_name, n), y = n)) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  coord_flip() +
+  labs(
+    title = "Top 10 Most Frequent First Lead Underwriters (LU1)",
+    x = "Underwriter Name",
+    y = "Number of Unique Bonds Led"
+  ) +
+  theme_minimal()
+
+
+
+###IT COUNTS DIFFERENT UNDERWRITERS FOR EACH FIRM DURING THE ENTIRE TIME SAMPLE###
+
+# Step 1: Reshape all LU*_name columns to long format
+uw_long <- dt %>%
+  select(issuer_cusip, matches("^LU\\d+_name$")) %>%
+  pivot_longer(cols = matches("^LU\\d+_name$"),
+               names_to = "LU_position",
+               values_to = "underwriter_name") %>%
+  filter(!is.na(underwriter_name))
+
+# Step 2: Count unique underwriters per issuer_cusip
+underwriter_variety <- uw_long %>%
+  distinct(issuer_cusip, underwriter_name) %>%  # remove duplicates
+  count(issuer_cusip, name = "num_unique_underwriters")
+
+# View result
+head(underwriter_variety)
+
+
+
+
+
+### ------MEASURE OF STICKNESS, Number of deals with the issuer’s most-used underwriter / Total number of issues, this measure belongs to [0,1]----- ###
+
+stickiness_by_issuer <- dt %>%
+  filter(!is.na(LU1_name)) %>%   # Exclude rows where the lead underwriter is missing
+  distinct(complete_cusip, .keep_all = TRUE) %>%   # Remove duplicates per bond
+  group_by(issuer_cusip, LU1_name) %>%   # Group by issuer and lead underwriter, so every further operation is made at at issuer level
+  summarise(num_deals = n(), .groups = "drop") %>%   # Count how many unique deals per pair
+  group_by(issuer_cusip) %>%   # Now group just by issuer
+  mutate(
+    total_deals = sum(num_deals),  # Total deals per issuer
+    stickiness = max(num_deals) / total_deals  # Stickiness = share of top underwriter
+  ) %>%
+  slice_max(num_deals, with_ties = FALSE) %>%  # Keep only the top underwriter
+  ungroup()  # Remove grouping
+
+# View result
+print(stickiness_by_issuer)
+
+
+
+### MEASURE OF STICKNESS DEPENDING ON THE INDEX ###
+stickiness_by_issuer_boa <- dt %>%
+  filter(!is.na(LU1_name)) %>%                          # Only keep rows with a lead underwriter
+  distinct(complete_cusip, .keep_all = TRUE) %>%        # Keep one observation per bond
+  group_by(issuer_cusip, boa, LU1_name) %>%             # Group by issuer, BOA flag, and underwriter
+  summarise(num_deals = n(), .groups = "drop") %>%
+  group_by(issuer_cusip, boa) %>%                       # Regroup by issuer and boa
+  mutate(
+    total_deals = sum(num_deals),                      # Total deals for each issuer in that BOA group
+    stickiness = max(num_deals) / total_deals          # Stickiness = share of deals from top underwriter
+  ) %>%
+  slice_max(num_deals, with_ties = FALSE) %>%           # Keep only the top underwriter per issuer + BOA group
+  ungroup()
+
+# View result
+head(stickiness_by_issuer_boa)
+
+
+# Compute mean stickiness separately for boa = 0 and boa = 1
+mean_stickiness_by_boa <- stickiness_by_issuer_boa %>%
+  group_by(boa) %>%
+  summarise(mean_stickiness = mean(stickiness, na.rm = TRUE))
+
+# View result
+print(mean_stickiness_by_boa)
+
+
+
+#-----------------------------------------------------------------#
+
+stickiness_by_issuer_boa_ym <- dt %>%
+  filter(!is.na(LU1_name)) %>%                       # Keep rows with LU1_name
+  distinct(complete_cusip, .keep_all = TRUE) %>%     # One observation per bond
+  group_by(issuer_cusip, boa, ym, LU1_name) %>%      # Group also by time period ym
+  summarise(num_deals = n(), .groups = "drop") %>%   # Count deals per underwriter per issuer + boa + ym
+  group_by(issuer_cusip, boa, ym) %>%                 # Regroup without underwriter to compute totals
+  mutate(
+    total_deals = sum(num_deals),                     # Total deals for issuer, boa, ym
+    stickiness = max(num_deals) / total_deals         # Stickiness = share by top underwriter
+  ) %>%
+  slice_max(num_deals, with_ties = FALSE) %>%         # Keep only top underwriter per group
+  ungroup()
+
+
+
+# Compute average stickiness per ym and boa
+stickiness_ts <- stickiness_by_issuer_boa_ym %>%
+  group_by(ym, boa) %>%
+  summarise(mean_stickiness = mean(stickiness, na.rm = TRUE),
+            .groups = "drop")
+
+
+# Plot the two time series of boa = 1 and boa = 0
+ggplot(stickiness_ts, aes(x = ym, y = mean_stickiness, color = factor(boa), group = boa)) +
+  geom_line(size = 1) +
+  geom_point() +
+  labs(
+    title = "Average Lead Underwriter Stickiness Over Time",
+    x = "Year-Quarter",
+    y = "Mean Stickiness Ratio",
+    color = "BOA Index"
+  ) +
+  scale_color_manual(values = c("0" = "red", "1" = "blue"),
+                     labels = c("Non-BOA (0)", "BOA (1)")) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+
+
+
+
+# Plot the two aggregate time series of stickiness
+
+
+stickiness_by_issuer_ym <- dt %>%
+  filter(!is.na(LU1_name)) %>%                       # Keep rows with LU1_name
+  distinct(complete_cusip, .keep_all = TRUE) %>%     # One observation per bond
+  group_by(issuer_cusip, ym, LU1_name) %>%           # Group by issuer, time period ym, and LU1
+  summarise(num_deals = n(), .groups = "drop") %>%   # Count deals per underwriter per issuer + ym
+  group_by(issuer_cusip, ym) %>%                     # Regroup without underwriter to compute totals
+  mutate(
+    total_deals = sum(num_deals),                   # Total deals per issuer and ym
+    stickiness = max(num_deals) / total_deals       # Stickiness = share by top underwriter
+  ) %>%
+  slice_max(num_deals, with_ties = FALSE) %>%       # Keep only top underwriter per group
+  ungroup()
+
+# Compute average stickiness per ym (not conditioned on boa)
+stickiness_ts_overall <- stickiness_by_issuer_ym %>%
+  group_by(ym) %>%
+  summarise(mean_stickiness = mean(stickiness, na.rm = TRUE),
+            .groups = "drop")
+
+# Plot the time series of average stickiness
+ggplot(stickiness_ts_overall, aes(x = ym, y = mean_stickiness)) +
+  geom_line(color = "steelblue", size = 1) +
+  geom_point(color = "steelblue") +
+  labs(
+    title = "Average Lead Underwriter Stickiness Over Time (Overall)",
+    x = "Year-Quarter",
+    y = "Mean Stickiness Ratio"
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+
+
+
+# Get the oldest observation where boa == 1 ----->  OLDEST INDEX BOND IS DATED 2003 Q1
+oldest_boa1 <- dt %>%
+  filter(boa == 1) %>%
+  mutate(ym_date = as.yearqtr(ym, format = "%Y Q%q")) %>%  # Convert ym to date
+  arrange(ym_date) %>%
+  slice(1)  # Get the first (oldest) observation
+
+# View result
+print(oldest_boa1)
+
+
+
+
+
+
+
+### IN ORDER TO HAVE A MEASURE OF DISPERSION AND DIVERSIFICATION ----> ENTROPY
