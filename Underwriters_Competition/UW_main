@@ -1,0 +1,289 @@
+# ==============================================================================
+#          Underwriters' Competition in the Era of Passive Investment:
+#                               - Main Script - 
+# ==============================================================================
+# Data:
+#
+# sample_all_quarters_v6 ---> Balanced sample of bonds at the quarterly level.
+# mergent_single_files   ---> Raw data of bond information. 
+# uw_link_mergent        ---> Names of lead underwriters using unique identifiers.
+#
+# ==============================================================================
+# The purpose of the explanatory analysis is to:
+#
+# 1) Find the number of lead underwriters/co-underwriters for each bond;
+# 2) Provide a market analysis (conditional and unconditional on boa value): 
+#' Number of underwriters in the market;
+#' Number of underwriters entering in the market (entrants);
+#' Number of underwriters exiting from the market (exits);
+# 3) Study the stickiness of these underwriters to firms over time;
+# 4) Check whether firms are less sticky to the same UW if using an index bond.
+# ==============================================================================
+# Author      : Davide Delfino & Filippo Palandri - Pre-Doc Students
+# Supervisor  : Florian Nagler
+#
+# Institution : Bocconi University - Milan
+#
+# ==============================================================================
+# ==============================================================================
+# Script Type : Explanatory Analysis
+# ==============================================================================
+
+# ==============================================================================
+# SET WORKING DIRECTORY
+# ==============================================================================
+path <- "C:/Users/david/Desktop/PreDoc/OTC-Markets/shared_filippo_davide/"
+setwd(path)
+
+
+# ==============================================================================
+# LOAD REQUIRED LIBRARIES
+# ==============================================================================
+
+# Data Handling
+library(tidyverse)
+library(lubridate)
+library(abind)
+library(entropy)
+library(forcats)
+library(stringdist)
+
+# Time Series Analysis
+library(tseries)
+library(zoo)
+
+# I/O
+library(writexl)
+library(readxl)
+library(xtable)
+
+# Plotting
+library(ggplot2)
+library(forcats)
+library(scales)
+
+# conflict
+library(conflicted)
+conflict_prefer("select", "dplyr", quiet = TRUE)
+conflict_prefer("filter", "dplyr", quiet = TRUE)
+
+# ==============================================================================
+# LOAD DATA AND FUNCTIONS
+# ==============================================================================
+
+# Load the sample of bonds (quarterly data)
+load("data/sample_all_quarters_v6.RData")
+
+# Load bonds' features (issuer, issue, agents, etc.)
+tmp_env <- new.env()
+load("data/mergent_single_files.RData", envir = tmp_env)
+
+issue_agents <- tmp_env$issue_agents 
+issuer       <- tmp_env$issuer 
+issue        <- tmp_env$issue 
+agent        <- tmp_env$agent  
+
+# Load underwriter linking file (Mergent mapping)
+uw_mergent <- read.csv("data/agent_id_giorgio_ind.csv")
+
+# UW amount
+uw_amount <- read.csv("data/underwriters_long_format.csv")
+
+# ==============================================================================
+# DATA CONSTRUCTION
+# ==============================================================================
+
+# *************************
+# STEP 0 : UW HARMONIZATION
+# *************************
+
+# Harmonize names with "giorgio_ind"
+uw_mergent_clean <- uw_mergent %>%
+  group_by(giorgio_ind) %>%
+  slice_min(order_by = nchar(legal_name), with_ties = FALSE) %>%
+  ungroup() %>%
+  select(giorgio_ind, legal_name_canonical = legal_name) %>%
+  right_join(uw_mergent, by = "giorgio_ind")
+
+uw_armonized_id <- issue_agents %>%
+  left_join(uw_mergent_clean) %>%
+  select(issue_id, agent_id, legal_name_canonical, giorgio_ind, agent_type)
+
+# ********************
+# STEP 1: KEEP LU ONLY
+# ********************
+# ---------------------------------------------------
+# Agent types:
+#   "LU" : Lead Underwriter
+#   "T"  : Trustee
+#   "U"  : Generic Underwriter
+#   "FA" : Financial Advisor
+#   "EX" : Exchange Agent
+# ---------------------------------------------------
+
+# Keep only Lead Underwriters (LU)
+issue_agents_lu <- uw_armonized_id %>%
+  filter(agent_type == "LU")
+
+# STEP 1.1 : Some agent is not in giorgio_ind so merge with agent and recover harmonized UW names
+issue_agents_lu_ok <- issue_agents_lu %>%
+  filter(!is.na(giorgio_ind))
+
+# Step 1.2: record missing and recovered from 'agent'
+issue_agents_lu_na <- issue_agents_lu %>%
+  filter(is.na(giorgio_ind)) %>%
+  left_join(agent, by = "agent_id") %>%
+  select(issue_id, agent_id, agent_type, legal_name)
+
+# Step 1.3: merge
+issue_agents_lu_full <- bind_rows(
+  issue_agents_lu_ok,
+  issue_agents_lu_na
+)
+
+issue_agents_lu_full <- issue_agents_lu_full %>%
+  mutate(
+    legal_name_canonical = if_else(
+      is.na(legal_name_canonical), legal_name, legal_name_canonical
+    )
+  ) %>%
+  select(-legal_name)
+
+max_id <- max(issue_agents_lu_full$giorgio_ind, na.rm = TRUE)
+
+new_names <- issue_agents_lu_full %>%
+  filter(is.na(giorgio_ind)) %>%
+  distinct(legal_name_canonical) %>%
+  arrange(legal_name_canonical) %>%
+  mutate(giorgio_ind = row_number() + max_id)
+
+issue_agents_lu_full <- issue_agents_lu_full %>%
+  left_join(new_names, by = "legal_name_canonical") %>%
+  mutate(
+    giorgio_ind = if_else(is.na(giorgio_ind.x), giorgio_ind.y, giorgio_ind.x)
+  ) %>%
+  select(-giorgio_ind.x, -giorgio_ind.y)
+
+# check the underwriters in the market
+distinct_LU <- issue_agents_lu_full %>% 
+  distinct(legal_name_canonical)
+
+# Count number of deals per underwriter
+issue_agents_lu_full %>% 
+  count(legal_name_canonical, sort = TRUE)
+
+# Check the NA
+issue_agents_lu_full %>%
+  summarise(
+    na     = sum(is.na(legal_name_canonical)),
+    not_na = sum(!is.na(legal_name_canonical))
+  )
+
+
+# ********************
+# STEP 2: LONG FORMAT
+# ********************
+
+# Create LONG FORMAT dataset wheree ach CUSIP is associated with exactly one LU underwriter.
+# If multiple co-underwriters exist, the CUSIP is repeated across rows.
+
+# STEP 3: Merge bond-level information with LU underwriters
+agent_map_lu_long <- issue_agents_lu %>%
+  left_join(issue, by = "issue_id") %>%
+  select(
+    issue_id, 
+    complete_cusip,
+    prospectus_issuer_name,
+    gross_spread,
+    selling_concession,
+    agent_id,
+    legal_name_canonical
+  ) %>%
+  distinct()
+
+
+# *********************
+# STEP 3: HARMONIZE BOA
+# *********************
+
+# Correct the value of BOA
+
+dt_boa <- dt %>%
+  filter(qt_off >= "2003 Q1") %>% 
+  filter(any(qt == qt_off, na.rm = TRUE), .by = complete_cusip) %>% 
+  group_by(complete_cusip) %>% 
+  mutate(
+    # A bond is indexed (final_boa = 1) if boa == 1 
+    # within the time window [issuance quarter .. issuance + 1 year].
+    # Note: 1 year = 4 quarters (in yearqtr format we add +1).
+    final_boa = as.integer(any(
+      boa == 1 & qt >= qt_off & qt <= qt_off + 1,
+      na.rm = TRUE
+    ))
+  ) %>%
+  ungroup() %>%
+  select(
+    ym, qt, qt_off, offering_yield, complete_cusip, cusip_8,
+    boa, off_amt, gvkey, final_boa, bond.rat
+  )
+
+# Quick check: number of indexed vs non-indexed bonds at issuance (qt == qt_off)
+dt_boa %>%
+  filter(qt == qt_off) %>%
+  summarise(
+    idx     = sum(final_boa == 1),
+    not_idx = sum(final_boa == 0)
+  )
+
+# *********************
+# STEP 4: FINAL DATASET
+# *********************
+
+# Dataset filtered at issuance quarter
+dt_boa_filtered <- dt_boa %>%
+  filter(qt == qt_off) 
+
+dt_final_long_boa <- dt_boa_filtered %>%
+  left_join(agent_map_lu_long, by = "complete_cusip") %>%
+  select(
+    issue_id , cusip_8, complete_cusip, qt, qt_off, gross_spread, selling_concession, boa, final_boa, 
+    off_amt, offering_yield, bond.rat, gvkey, agent_id, legal_name_canonical
+  )
+
+# Full time-series dataset (all quarters, not only issuance)
+dt_final_long_boa_TS <- dt_boa %>%
+  left_join(agent_map_lu_long, by = "complete_cusip") %>%
+  select(
+    issue_id , cusip_8, complete_cusip, qt, qt_off, gross_spread, boa, final_boa, 
+    off_amt, offering_yield, bond.rat, gvkey, agent_id, legal_name_canonical
+  )
+
+# Check missing values in gross_spread (important for fee analysis)
+dt_final_long_boa %>%
+  summarise(missing_gross_spread = sum(is.na(gross_spread)),
+            available_gross_spread = sum(!is.na(gross_spread))
+  )
+
+# Check the bond rating info
+dt_final_long_boa %>%
+  summarise(missing_bond.rat = sum(is.na(bond.rat)),
+            IG = sum(bond.rat < 10),
+            HY = sum(bond.rat >= 10)
+  )
+
+# distinct UW
+dt_final_long_boa %>%
+  summarise(dis_UW = n_distinct(legal_name_canonical))
+
+dt_final_long_boa %>%
+  summarise(n_distinct(complete_cusip))
+
+
+# Underwriter long format merge 
+
+uw_amount <- uw_amount %>%
+  filter(!is.na(UnderwritingAmount)) %>%
+  select(CUSIP, Underwriter, UnderwritingAmount)
+
+uw_amount %>% summarise(n_distinct(CUSIP))
+uw_amount %>% summarise(n_distinct(Underwriter))
