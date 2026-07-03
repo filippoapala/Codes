@@ -32,7 +32,7 @@
 # ==============================================================================
 # SET WORKING DIRECTORY
 # ==============================================================================
-path <- "C:/Users/david/Desktop/PreDoc/OTC-Markets/shared_filippo_davide/"
+path <- "your_path"
 setwd(path)
 
 
