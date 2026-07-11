@@ -3,16 +3,16 @@
 I'm a **quantitiative economist**, focused on **econometrics and data science**, with practiacal research experience in **Finance** at Bocconi University.
 
 
-## Programming
-### Subsection
+
+### Programming
 - Python
 - R
 - SQL
 - STATA
 - MATLAB
 
-## Projects
-### Subsection
+
+### Projects
 - Econometrics 
 - Data Science
 
