@@ -1,6 +1,6 @@
 # Hi, I'm Filippo Palandri 
 
-I'm a **quantitiative economist**, focused on **econometrics and data science**, with practiacal research experience in **Finance**.
+I'm a **quantitiative economist**, focused on **econometrics and data science**, with practiacal research experience in **Finance** at Bocconi University.
 
 
 ## Programming
@@ -10,17 +10,15 @@ I'm a **quantitiative economist**, focused on **econometrics and data science**,
 -Stata
 -MATLAB
 
-## Featured Projects
-- 🚀 Distributed Task Queue
-- 🤖 AI Research Assistant
-- 📊 Personal Finance Dashboard
+## Projects
+### Subsection
+- Econometrics 
+- Data Science
 
-## Currently Learning
-- Kubernetes
-- Rust
+## Work in progress
+- SQL 8 weeks challange
 
 ## Contact
-- LinkedIn: ...
-- Email: ...
+- Email: filippopalandri@gmail.com
 
 
