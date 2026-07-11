@@ -17,7 +17,7 @@ I'm a **quantitative economist**, focused on **econometrics and data science**, 
 - Data Science
 
 ## Work in progress
-- SQL 8 weeks challange
+- SQL 8 weeks challenge
 
 ## Contact
 - Email: filippopalandri@gmail.com
