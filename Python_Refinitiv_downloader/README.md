@@ -48,3 +48,47 @@ Required fields:
 | `TR.UnderwriterRankDescription` | Role of the underwriter in the issuance |
 
 The current implementation focuses on:
+
+
+---
+
+## Workflow
+
+The pipeline follows four main steps:
+
+### 1. Load Bond Identifiers
+
+A CSV file containing bond CUSIPs is imported:
+
+The CUSIPs are extracted into a vector for querying the Refinitiv database.
+
+---
+
+### 2. Retrieve Underwriter Information
+
+For each CUSIP, the script queries Eikon and extracts:
+
+- Underwriter name
+- Underwriter participation amount
+- Underwriter role
+
+Only observations classified as:
+
+are retained.
+
+---
+
+### 3. Handle API Constraints
+
+To improve robustness:
+
+- CUSIPs are divided into two batches
+- API requests are throttled using time delays
+- Errors and missing observations are logged
+- Intermediate outputs are saved separately
+
+---
+
+### 4. Create Final Research Dataset
+
+The two extracted datasets are combined into a single long-format file
