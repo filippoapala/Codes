@@ -4,7 +4,7 @@ I'm a **quantitiative economist**, focused on **econometrics and data science**,
 
 
 
-### Programming
+## Programming
 - Python
 - R
 - SQL
@@ -12,7 +12,7 @@ I'm a **quantitiative economist**, focused on **econometrics and data science**,
 - MATLAB
 
 
-### Projects
+## Projects
 - Econometrics 
 - Data Science
 
