@@ -1,6 +1,6 @@
 # Hi, I'm Filippo Palandri 
 
-I'm a **quantitiative economist**, focused on **econometrics and data science**, with practiacal research experience in **Finance** at Bocconi University.
+I'm a **quantitative economist**, focused on **econometrics and data science**, with practical research experience in **Finance** at Bocconi University.
 
 
 
