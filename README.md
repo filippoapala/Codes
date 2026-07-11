@@ -4,11 +4,11 @@ I'm a **quantitiative economist**, focused on **econometrics and data science**,
 
 
 ## Programming
--Python
--R
--SQL
--Stata
--MATLAB
+- Python
+- R
+- SQL
+- STATA
+- MATLAB
 
 ## Projects
 ### Subsection
