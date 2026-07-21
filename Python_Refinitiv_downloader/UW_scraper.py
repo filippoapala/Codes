@@ -79,14 +79,14 @@ def fetch_and_save(cusips, filename):
 
 
 # Step 1: process first half
-fetch_and_save(first_half, "/Users/filippopalandri/Desktop/UNI/Pre-Doc/UW_Project/DATA/underwriters_half1.csv")
+fetch_and_save(first_half, "your_path_half_1.csv")
 # Step 2: process second half
-fetch_and_save(second_half, "/Users/filippopalandri/Desktop/UNI/Pre-Doc/UW_Project/DATA/underwriters_half2.csv")
+fetch_and_save(second_half, "your_path_half_2.csv")
 
 # Step 3: combine both halves and save final CSV
-df1 = pd.read_csv("/Users/filippopalandri/Desktop/UNI/Pre-Doc/UW_Project/DATA/underwriters_half1.csv")
-df2 = pd.read_csv("/Users/filippopalandri/Desktop/UNI/Pre-Doc/UW_Project/DATA/underwriters_half2.csv")
+df1 = pd.read_csv("your_path_half_1.csv")
+df2 = pd.read_csv("your_path_half_2.csv"")
 df_final = pd.concat([df1, df2], ignore_index=True)
-df_final.to_csv("/Users/filippopalandri/Desktop/UNI/Pre-Doc/UW_Project/DATA/underwriters_long_format.csv",
+df_final.to_csv("your_path_long_format.csv",
                 index=False, na_rep="NA")
 
