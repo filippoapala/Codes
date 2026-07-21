@@ -15,7 +15,7 @@ warnings.filterwarnings("ignore", category=FutureWarning)
 
 
 # Load CUSIP list
-csv_file_path = "/Users/filippopalandri/Desktop/UNI/Pre-Doc/UW_Project/DATA/all_bonds.csv"
+csv_file_path = "your_csv_file_path"
 df_cusip = pd.read_csv(csv_file_path)
 cusip_codes = np.array(df_cusip["complete_cusip"])
 
